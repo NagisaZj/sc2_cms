@@ -18,17 +18,17 @@ MAX_GLOBAL_EP = 10000
 GLOBAL_NET_SCOPE="Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels=64
-scr_num=5
+scr_num=3
 scr_bound=[0,scr_pixels-1]
 entropy_gamma=0.005
 steps=40
 action_speed=8
 reward_discount=GAMMA=0.9
-LR_A = 0.002    # learning rate for actor
-LR_C = 0.001    # learning rate for critic
+LR_A = 5e-5    # learning rate for actor
+LR_C = 5e-5    # learning rate for critic
 GLOBAL_RUNNING_R = []
 GLOBAL_EP = 0
-N_WORKERS = 10
+N_WORKERS = 64
 N_A=2
 available_len = 524
 available_len_used = 2
@@ -137,9 +137,12 @@ class ACnet:
         tl.layers.initialize_global_variables(sess)
 
 
-    def update_global(self, feed_dict):  # run by a local
+    def update_global_high(self, feed_dict):  # run by a local
         _, _, t = sess.run([self.update_a_op, self.update_c_op, self.test], feed_dict)  # local grads applies to global net
         return t
+
+    def update_global_low(self,feed_dict):
+        sess.run([self.update_c_op],feed_dict)
 
     def pull_global(self):  # run by a local
         sess.run([self.pull_a_params_op, self.pull_c_params_op])
@@ -213,10 +216,17 @@ class Util:
 
 class Worker:
     def __init__(self,name,globalAC,config_a,config_c):
-        self.env= wrap()
-        self.globalAC= globalAC
         self.name=name
+        #self.globalAC = globalAC
+        #self.globalAC.load_ckpt()
         self.AC=ACnet(name,globalAC,config_a,config_c)
+        globalAC.load_ckpt()
+        self.AC.pull_global()
+        self.env= wrap()
+        
+        
+        
+
 
     def pre_process(self,scr,mini,multi,available):
         scr_new=np.zeros_like(scr)
@@ -246,6 +256,7 @@ class Worker:
 
     def work(self):
         global GLOBAL_RUNNING_R, GLOBAL_EP
+        #self.AC.pull_global()
         total_step = 1
         buffer_s, buffer_a0 ,buffer_a1, buffer_a2, buffer_r,buffer_avail = [], [],[], [],[],[]
         while not COORD.should_stop() and GLOBAL_EP < MAX_GLOBAL_EP:
@@ -253,6 +264,7 @@ class Worker:
             ep_r=0
             while True:
                 a0,a1,a2 = self.AC.choose_action([state],[info])
+                #print(state)
                 action = 1 if a0 == 0 else int(2 + a1 * scr_pixels + a2)
                 buffer_s.append([state])
                 buffer_avail.append([info])
@@ -260,6 +272,7 @@ class Worker:
                 buffer_a1.append(a1)
                 buffer_a2.append(a2)
                 state,reward,done,info = self.env.step(action)
+
                 buffer_r.append(reward)
                 ep_r +=  reward
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done:
@@ -285,8 +298,8 @@ class Worker:
                         self.AC.v_target: buffer_v_target,
                         self.AC.available: buffer_avail,
                     }
+                    test = self.AC.update_global_high(feed_dict)  # update parameters
 
-                    test = self.AC.update_global(feed_dict)  # update parameters
                     buffer_s,buffer_a0, buffer_a1, buffer_a2, buffer_r, buffer_avail = [], [], [], [], [], []
                     self.AC.pull_global()
 
@@ -333,24 +346,20 @@ def main(unused_argv):
     global sess
     global OPT_A, OPT_C
     global COORD
-    global GLOBAL_AC
+    #global GLOBAL_AC
     sess = tf.Session()
     from config_a3c import config_a,config_c
-    test()
+    #test()
 
     OPT_A = tf.train.RMSPropOptimizer(LR_A, name='RMSPropA')
     OPT_C = tf.train.RMSPropOptimizer(LR_C, name='RMSPropC')
 
     GLOBAL_AC = ACnet(GLOBAL_NET_SCOPE,None,config_a,config_c)  # we only need its params
-    GLOBAL_AC.load_ckpt()
+    
         #tl.layers.initialize_global_variables(sess)
         #sess.run(tf.global_variables_initializer())
 
-    workers = []
-        # Create worker
-    for i in range(N_WORKERS):
-        i_name = 'Worker_%i' % i   # worker name
-        workers.append(Worker(i_name, GLOBAL_AC,config_a,config_c))
+    
 
     COORD = tf.train.Coordinator()
 
@@ -359,6 +368,14 @@ def main(unused_argv):
     #workers[0].AC.test1.print_params()
 
     ## start TF threading
+    GLOBAL_AC.load_ckpt()
+    
+    workers = []
+        # Create worker
+    for i in range(N_WORKERS):
+        i_name = 'Worker_%i' % i   # worker name
+        workers.append(Worker(i_name, GLOBAL_AC,config_a,config_c))
+
     worker_threads = []
     for worker in workers:
         job = lambda: worker.work()
