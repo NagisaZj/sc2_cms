@@ -13,6 +13,24 @@ class Block:
         self.initializers = None
 
 
+class pre:
+    xaiver = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
+    relu = tf.nn.relu
+    tanh = tf.nn.tanh
+    softplus = tf.nn.softplus
+    softmax = tf.nn.softmax
+    sigmoid = tf.nn.sigmoid
+
+    bridge = Block()
+    bridge.types =          ['conv'] * 1 
+    bridge.filters =        [1] 
+    bridge.kernel_sizes =   [(1, 1)]
+    bridge.strides =        [1] 
+    bridge.paddings =       ['SAME'] 
+    bridge.activations =    [relu]
+    bridge.initializers =   [xaiver]
+
+
 class config_a:
     xaiver = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
     relu = tf.nn.relu

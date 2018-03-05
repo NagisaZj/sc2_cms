@@ -169,6 +169,10 @@ class ACnet:
         tl.files.load_ckpt(sess=sess, var_list=self.a_params+self.c_params, save_dir=self.scope, printable=False)
         return
     def _build_net(self):
+        with tf.varible_scope("pre") as scope:
+            pred = Util.block(self.s,self.)
+
+
 
         with tf.variable_scope("actor") as scope:
             self.a_bridge = Util.block(self.s, self.config_a.bridge, "bridge")
