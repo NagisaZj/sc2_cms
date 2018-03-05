@@ -93,6 +93,7 @@ class scenv:
         self.info = np.array([a1,a2])
 
         self.history = (f1, f2)
+        state = state + 1e-2
         return state, reward, done, self.info
 
     def close(self):

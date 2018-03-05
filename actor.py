@@ -14,7 +14,7 @@ from absl import flags ,app
 from sc2_util import wrap
 from sc2_util import FLAGS, flags
 
-MAX_GLOBAL_EP = 10000
+MAX_GLOBAL_EP = 20000
 GLOBAL_NET_SCOPE="Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels=64
@@ -298,6 +298,7 @@ class Worker:
                         self.AC.v_target: buffer_v_target,
                         self.AC.available: buffer_avail,
                     }
+                    
                     test = self.AC.update_global_high(feed_dict)  # update parameters
 
                     buffer_s,buffer_a0, buffer_a1, buffer_a2, buffer_r, buffer_avail = [], [], [], [], [], []
