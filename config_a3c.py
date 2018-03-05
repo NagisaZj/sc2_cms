@@ -13,7 +13,7 @@ class Block:
         self.initializers = None
 
 
-class pre:
+class config_pre:
     xaiver = tf.contrib.layers.variance_scaling_initializer(factor=0.5, mode='FAN_AVG')
     relu = tf.nn.relu
     tanh = tf.nn.tanh
