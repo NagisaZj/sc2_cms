@@ -372,7 +372,8 @@ class Worker:
                         self.AC.available: buffer_avail,
                     }
                     test = self.AC.update_global_high(feed_dict)  # update parameters
-
+                    loss = sess.run([self.AC.c_loss], fedd_dict=feed_dict)
+                    print(loss)
                     buffer_s, buffer_a0, buffer_a1, buffer_a2, buffer_r, buffer_avail = [], [], [], [], [], []
                     self.AC.pull_global()
 
