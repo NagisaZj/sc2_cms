@@ -12,7 +12,7 @@ def action(obs,info):
           if not min_dist or dist < min_dist:
               closest, min_dist = p, dist
       if closest != None:
-          return 2,closest[0],closest[1]
+          return 1,closest[0],closest[1]
       else:
           return 0,0,0
    else:

@@ -15,7 +15,7 @@ from sc2_util import wrap
 from sc2_util import FLAGS, flags
 import teacher
 
-MAX_GLOBAL_EP = 5000
+MAX_GLOBAL_EP = 1000
 GLOBAL_NET_SCOPE = "Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels = 64
@@ -25,11 +25,11 @@ entropy_gamma = 0.005
 steps = 40
 action_speed = 8
 reward_discount = GAMMA = 0.9
-LR_A = 5e-5  # learning rate for actor
-LR_C = 5e-5  # learning rate for critic
+LR_A = 5e-4  # learning rate for actor
+LR_C = 5e-4  # learning rate for critic
 GLOBAL_RUNNING_R = []
 GLOBAL_EP = 0
-N_WORKERS = 1
+N_WORKERS = 64
 N_A = 2
 available_len = 524
 available_len_used = 2
@@ -98,7 +98,7 @@ class ACnet:
                     else:
                         log_prob[i,0]=log_prob0[i,0]
                 '''
-                log_prob = log_prob0 + log_prob1 + log_prob2
+                log_prob = log_prob0 + log_prob1 + log_prob2 
 
                 exp_v = log_prob * td
 
