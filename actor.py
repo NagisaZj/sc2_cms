@@ -14,7 +14,7 @@ from absl import flags ,app
 from sc2_util import wrap
 from sc2_util import FLAGS, flags
 
-MAX_GLOBAL_EP = 20000
+MAX_GLOBAL_EP = 5000
 GLOBAL_NET_SCOPE="Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels=64
@@ -24,11 +24,11 @@ entropy_gamma=0.005
 steps=40
 action_speed=8
 reward_discount=GAMMA=0.9
-LR_A = 5e-5    # learning rate for actor
+LR_A = 1e-4    # learning rate for actor
 LR_C = 5e-5    # learning rate for critic
 GLOBAL_RUNNING_R = []
 GLOBAL_EP = 0
-N_WORKERS = 1
+N_WORKERS = 64
 N_A=2
 available_len = 524
 available_len_used = 2
