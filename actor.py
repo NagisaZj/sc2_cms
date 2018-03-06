@@ -13,8 +13,9 @@ from absl import flags ,app
 
 from sc2_util import wrap
 from sc2_util import FLAGS, flags
+import matplotlib.pyplot as plt
 
-MAX_GLOBAL_EP = 5000
+MAX_GLOBAL_EP = 3000
 GLOBAL_NET_SCOPE="Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels=64
@@ -388,8 +389,12 @@ def main(unused_argv):
         t.start()
         worker_threads.append(t)
     COORD.join(worker_threads)
-
-    GLOBAL_AC.save_ckpt()
+    
+    #GLOBAL_AC.save_ckpt()
+    plt.plot(GLOBAL_RUNNING_R)
+    plt.show()
+    plt.plot(GLOBAL_RUNNING_R)
+    plt.savefig("a.jpg")
 
 if __name__=="__main__":
 

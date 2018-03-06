@@ -15,7 +15,7 @@ from sc2_util import wrap
 from sc2_util import FLAGS, flags
 import teacher
 
-MAX_GLOBAL_EP = 1000
+MAX_GLOBAL_EP = 30
 GLOBAL_NET_SCOPE = "Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels = 64
@@ -29,7 +29,7 @@ LR_A = 5e-4  # learning rate for actor
 LR_C = 5e-4  # learning rate for critic
 GLOBAL_RUNNING_R = []
 GLOBAL_EP = 0
-N_WORKERS = 64
+N_WORKERS = 1
 N_A = 2
 available_len = 524
 available_len_used = 2

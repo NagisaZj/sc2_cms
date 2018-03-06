@@ -13,8 +13,9 @@ from absl import flags ,app
 
 from sc2_util import wrap
 from sc2_util import FLAGS, flags
+import matplotlib.pyplot as plt
 
-MAX_GLOBAL_EP = 1000
+MAX_GLOBAL_EP = 5000
 GLOBAL_NET_SCOPE="Global_Net"
 UPDATE_GLOBAL_ITER = 40
 scr_pixels=64
@@ -24,8 +25,8 @@ entropy_gamma=0.005
 steps=40
 action_speed=8
 reward_discount=GAMMA=0.9
-LR_A = 5e-4    # learning rate for actor
-LR_C = 5e-4    # learning rate for critic
+LR_A = 1e-4    # learning rate for actor
+LR_C = 5e-5    # learning rate for critic
 GLOBAL_RUNNING_R = []
 GLOBAL_EP = 0
 N_WORKERS = 64
@@ -35,9 +36,9 @@ available_len_used = 2
 save_path = "/models"
 
 class ACnet:
-    def __init__(self,scope,globalAC=None,config_a=None, config_c=None):
+    def __init__(self,scope,globalAC=None,config_pre = None,config_a=None, config_c=None):
         self.scope=scope
-      
+        self.config_pre = config_pre
         self.config_a = config_a
         self.config_c = config_c
         if scope == GLOBAL_NET_SCOPE:  #build global net
@@ -137,9 +138,12 @@ class ACnet:
         tl.layers.initialize_global_variables(sess)
 
 
-    def update_global(self, feed_dict):  # run by a local
+    def update_global_high(self, feed_dict):  # run by a local
         _, _, t = sess.run([self.update_a_op, self.update_c_op, self.test], feed_dict)  # local grads applies to global net
         return t
+
+    def update_global_low(self,feed_dict):
+        sess.run([self.update_c_op],feed_dict)
 
     def pull_global(self):  # run by a local
         sess.run([self.pull_a_params_op, self.pull_c_params_op])
@@ -156,18 +160,6 @@ class ACnet:
         #print(a1)
         return a0,a1,a2
 
-    def choose_action_global(self, s,avail_new):  # run by a local
-        prob_weights = sess.run(self.action, feed_dict={self.s:s,
-                                                        self.available:avail_new})
-
-        a0 = np.random.choice(range(prob_weights.shape[1]),
-                                  p=prob_weights.ravel())
-        #print(prob_weights)
-        a1=sess.run([self.mu_1], {self.s:s})[0]
-        a2 = sess.run([self.mu_2], {self.s:s})[0]
-        #print(a1)
-        return a0,a1*scr_bound[1],a2*scr_bound[1]
-
     def save_ckpt(self):
         #saver =  tf.train.Saver()
         #saver.save(sess,"model.ckpt")
@@ -178,9 +170,13 @@ class ACnet:
         tl.files.load_ckpt(sess=sess, var_list=self.a_params+self.c_params, save_dir=self.scope, printable=False)
         return
     def _build_net(self):
+        with tf.variable_scope("pre") as scope:
+            self.pred = Util.block(self.s,self.config_pre.bridge,"bridge")
+
+
 
         with tf.variable_scope("actor") as scope:
-            self.a_bridge = Util.block(self.s, self.config_a.bridge, "bridge")
+            self.a_bridge = Util.block(self.pred, self.config_a.bridge, "bridge")
             self.mu_1 = Util.block(self.a_bridge,self.config_a.mu_1,"mu_1")
             self.mu_2 = Util.block(self.a_bridge,self.config_a.mu_2,"mu_2")
             self.sigma_1 = Util.block(self.a_bridge,self.config_a.sigma_1,"sigma_1")
@@ -191,7 +187,7 @@ class ACnet:
             self.action = self.action / tf.reduce_sum(self.action, 1, keep_dims=True)
 
         with tf.variable_scope("critic") as scope:
-            self.c_bridge = Util.block(self.s, self.config_c.bridge, "bridge")
+            self.c_bridge = Util.block(self.pred, self.config_c.bridge, "bridge")
             self.value = Util.block(self.c_bridge, self.config_c.value, "value")
 
 
@@ -224,11 +220,18 @@ class Util:
             return x
 
 class Worker:
-    def __init__(self,name,globalAC,config_a,config_c):
-        self.env= wrap()
-        self.globalAC= globalAC
+    def __init__(self,name,globalAC,config_pre,config_a,config_c):
         self.name=name
-        self.AC=ACnet(name,globalAC,config_a,config_c)
+        #self.globalAC = globalAC
+        #self.globalAC.load_ckpt()
+        self.AC=ACnet(name,globalAC,config_pre,config_a,config_c)
+        globalAC.load_ckpt()
+        self.AC.pull_global()
+        self.env= wrap()
+        
+        
+        
+
 
     def pre_process(self,scr,mini,multi,available):
         scr_new=np.zeros_like(scr)
@@ -258,6 +261,7 @@ class Worker:
 
     def work(self):
         global GLOBAL_RUNNING_R, GLOBAL_EP
+        #self.AC.pull_global()
         total_step = 1
         buffer_s, buffer_a0 ,buffer_a1, buffer_a2, buffer_r,buffer_avail = [], [],[], [],[],[]
         while not COORD.should_stop() and GLOBAL_EP < MAX_GLOBAL_EP:
@@ -299,8 +303,9 @@ class Worker:
                         self.AC.v_target: buffer_v_target,
                         self.AC.available: buffer_avail,
                     }
+                    
+                    test = self.AC.update_global_high(feed_dict)  # update parameters
 
-                    test = self.AC.update_global(feed_dict)  # update parameters
                     buffer_s,buffer_a0, buffer_a1, buffer_a2, buffer_r, buffer_avail = [], [], [], [], [], []
                     self.AC.pull_global()
 
@@ -326,8 +331,8 @@ class Worker:
 
 
 def test():
-    from config_a3c import config_a, config_c
-    ac = ACnet("Global_Net",None,config_a,config_c)  # we only need its params
+    from config_a3c import config_a, config_c,config_pre
+    ac = ACnet("Global_Net",None,config_pre,config_a,config_c)  # we only need its params
     ac.load_ckpt()
     env = wrap()
     state, _ ,done ,info = env.reset()
@@ -347,24 +352,20 @@ def main(unused_argv):
     global sess
     global OPT_A, OPT_C
     global COORD
-    global GLOBAL_AC
+    #global GLOBAL_AC
     sess = tf.Session()
-    from config_a3c import config_a,config_c
+    from config_a3c import config_a,config_c,config_pre
     test()
 
     OPT_A = tf.train.RMSPropOptimizer(LR_A, name='RMSPropA')
     OPT_C = tf.train.RMSPropOptimizer(LR_C, name='RMSPropC')
 
-    GLOBAL_AC = ACnet(GLOBAL_NET_SCOPE,None,config_a,config_c)  # we only need its params
-    GLOBAL_AC.load_ckpt()
+    GLOBAL_AC = ACnet(GLOBAL_NET_SCOPE,None,config_pre,config_a,config_c)  # we only need its params
+    
         #tl.layers.initialize_global_variables(sess)
         #sess.run(tf.global_variables_initializer())
 
-    workers = []
-        # Create worker
-    for i in range(N_WORKERS):
-        i_name = 'Worker_%i' % i   # worker name
-        workers.append(Worker(i_name, GLOBAL_AC,config_a,config_c))
+    
 
     COORD = tf.train.Coordinator()
 
@@ -373,6 +374,14 @@ def main(unused_argv):
     #workers[0].AC.test1.print_params()
 
     ## start TF threading
+    GLOBAL_AC.load_ckpt()
+    
+    workers = []
+        # Create worker
+    for i in range(N_WORKERS):
+        i_name = 'Worker_%i' % i   # worker name
+        workers.append(Worker(i_name, GLOBAL_AC,config_pre,config_a,config_c))
+
     worker_threads = []
     for worker in workers:
         job = lambda: worker.work()
@@ -380,8 +389,12 @@ def main(unused_argv):
         t.start()
         worker_threads.append(t)
     COORD.join(worker_threads)
-
+    
     GLOBAL_AC.save_ckpt()
+    plt.plot(GLOBAL_RUNNING_R)
+    plt.show()
+    plt.plot(GLOBAL_RUNNING_R)
+    plt.savefig("a.jpg")
 
 if __name__=="__main__":
 
